@@ -415,6 +415,7 @@ public:
             if (!(cin >> choice)) {
                 clearInputBuffer();
                 cout << "Input tidak valid. Masukkan angka menu.\n";
+                choice = -1;
                 continue;
             }
             clearInputBuffer();
@@ -433,6 +434,8 @@ public:
                     break;
                 default:
                     cout << "Pilihan tidak valid.\n";
+                    choice = -1;
+                    break;
             }
         } while (choice != 0);
     }
@@ -443,4 +446,5 @@ int main() {
     MiniLibrary library;
     library.run();
     return 0;
+
 }
