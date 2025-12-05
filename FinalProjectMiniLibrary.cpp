@@ -34,9 +34,26 @@ private:
         return string(buffer);
     }
 
-    void clearInputBuffer() {
-        cin.clear();
-        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    string getLineTrim() {
+        string s;
+        getline(cin, s);
+        while (!s.empty() && isspace(s.front())) s.erase(s.begin());
+        while (!s.empty() && isspace(s.back())) s.pop_back();
+        return s;
+    }
+
+    int getIntegerSafe(int minVal, int maxVal) {
+        while (true) {
+            string input;
+            getline(cin, input);
+            try {
+                int value = stoi(input);
+                if (value >= minVal && value <= maxVal) return value;
+                cout << "Masukkan angka " << minVal << "-" << maxVal << ": ";
+            } catch (...) {
+                cout << "Input tidak valid. Masukkan angka: ";
+            }
+        }
     }
 
     string priorityToString(int priority) {
@@ -49,15 +66,11 @@ private:
     }
 
 public:
-    MiniLibrary() : nextId(1) {
-        loadData();
-    }
+    MiniLibrary() : nextId(1) { loadData(); }
 
     void loadData() {
         ifstream file(filename);
-        if (!file.is_open()) {
-            return;
-        }
+        if (!file.is_open()) return;
 
         books.clear();
         string line;
@@ -69,21 +82,17 @@ public:
             stringstream ss(line);
 
             if (!getline(ss, temp, '|')) continue;
-            try {
-                book.id = stoi(temp);
-            } catch (...) { continue; }
+            try { book.id = stoi(temp); } catch (...) { continue; }
 
-            if (!getline(ss, book.title, '|')) continue;
-            if (!getline(ss, book.author, '|')) continue;
-            if (!getline(ss, book.category, '|')) continue;
-            if (!getline(ss, book.status, '|')) continue;
+            getline(ss, book.title, '|');
+            getline(ss, book.author, '|');
+            getline(ss, book.category, '|');
+            getline(ss, book.status, '|');
 
-            if (!getline(ss, temp, '|')) continue;
-            try {
-                book.priority = stoi(temp);
-            } catch (...) { book.priority = 3; }
+            getline(ss, temp, '|');
+            try { book.priority = stoi(temp); } catch (...) { book.priority = 3; }
 
-            if (!getline(ss, book.dateAdded)) book.dateAdded = "";
+            getline(ss, book.dateAdded);
 
             books.push_back(book);
             nextId = max(nextId, book.id + 1);
@@ -99,25 +108,17 @@ public:
             return;
         }
 
-        for (const auto &book : books) {
-            string title = book.title;
-            string author = book.author;
-            string category = book.category;
-            string status = book.status;
-            auto sanitize = [](string s) {
-                for (char &c : s) if (c == '|') c = '/';
-                return s;
-            };
-            title = sanitize(title);
-            author = sanitize(author);
-            category = sanitize(category);
-            status = sanitize(status);
+        auto sanitize = [](string s){
+            for (char &c : s) if (c == '|') c = '/';
+            return s;
+        };
 
+        for (const auto &book : books) {
             file << book.id << "|"
-                 << title << "|"
-                 << author << "|"
-                 << category << "|"
-                 << status << "|"
+                 << sanitize(book.title) << "|"
+                 << sanitize(book.author) << "|"
+                 << sanitize(book.category) << "|"
+                 << sanitize(book.status) << "|"
                  << book.priority << "|"
                  << book.dateAdded << "\n";
         }
@@ -130,46 +131,19 @@ public:
         newBook.id = nextId++;
 
         cout << "\n=== TAMBAH BUKU BARU ===\n";
-
         cout << "Judul Buku: ";
-        getline(cin, newBook.title);
-
+        newBook.title = getLineTrim();
         cout << "Penulis: ";
-        getline(cin, newBook.author);
-
+        newBook.author = getLineTrim();
         cout << "Kategori: ";
-        getline(cin, newBook.category);
+        newBook.category = getLineTrim();
 
-        int statusChoice;
-        while (true) {
-            cout << "Status Baca (1: Belum Dibaca, 2: Sedang Dibaca, 3: Selesai): ";
-            if (!(cin >> statusChoice)) {
-                clearInputBuffer();
-                cout << "Input tidak valid. Masukkan angka 1-3.\n";
-                continue;
-            }
-            clearInputBuffer();
-            if (statusChoice == 1) { newBook.status = "Belum Dibaca"; break; }
-            if (statusChoice == 2) { newBook.status = "Sedang Dibaca"; break; }
-            if (statusChoice == 3) { newBook.status = "Selesai"; break; }
-            cout << "Pilihan tidak valid.\n";
-        }
+        cout << "Status (1 Belum dibaca, 2 Sedang dibaca, 3 Selesai dibaca): ";
+        int status = getIntegerSafe(1, 3);
+        newBook.status = (status == 1 ? "Belum Dibaca" : status == 2 ? "Sedang Dibaca" : "Selesai");
 
-        int priorityChoice;
-        while (true) {
-            cout << "Prioritas (1: Tinggi, 2: Sedang, 3: Rendah): ";
-            if (!(cin >> priorityChoice)) {
-                clearInputBuffer();
-                cout << "Input tidak valid. Masukkan angka 1-3.\n";
-                continue;
-            }
-            clearInputBuffer();
-            if (priorityChoice >= 1 && priorityChoice <= 3) {
-                newBook.priority = priorityChoice;
-                break;
-            }
-            cout << "Pilihan tidak valid.\n";
-        }
+        cout << "Prioritas (1 Tinggi, 2 Sedang, 3 Rendah): ";
+        newBook.priority = getIntegerSafe(1, 3);
 
         newBook.dateAdded = getCurrentDate();
         books.push_back(newBook);
@@ -191,207 +165,108 @@ public:
              << setw(12) << "Tanggal" << "\n";
         cout << "=============================================================================================================\n";
 
-        for (const auto &book : books) {
-            cout << left << setw(5) << book.id
-                 << setw(25) << (book.title.length() > 24 ? book.title.substr(0, 24) + "." : book.title)
-                 << setw(20) << (book.author.length() > 19 ? book.author.substr(0, 19) + "." : book.author)
-                 << setw(15) << book.category
-                 << setw(15) << book.status
-                 << setw(10) << priorityToString(book.priority)
-                 << setw(12) << book.dateAdded << "\n";
+        for (const auto &b : books) {
+            cout << left << setw(5) << b.id
+                 << setw(25) << (b.title.length() > 24 ? b.title.substr(0, 24) + "." : b.title)
+                 << setw(20) << (b.author.length() > 19 ? b.author.substr(0, 19) + "." : b.author)
+                 << setw(15) << b.category
+                 << setw(15) << b.status
+                 << setw(10) << priorityToString(b.priority)
+                 << setw(12) << b.dateAdded << "\n";
         }
         cout << "=============================================================================================================\n";
     }
 
     void searchBooks() {
         if (books.empty()) {
-            cout << "\nTidak ada buku dalam perpustakaan.\n";
+            cout << "\nTidak ada buku.\n";
             return;
         }
 
         cout << "\n=== PENCARIAN BUKU ===\n";
-        cout << "Cari berdasarkan: \n1. Judul\n2. Penulis\n3. Kategori\nPilihan: ";
-
-        int choice;
-        if (!(cin >> choice)) {
-            clearInputBuffer();
-            cout << "Input tidak valid. Kembali ke menu.\n";
-            return;
-        }
-        clearInputBuffer();
-
-        if (choice < 1 || choice > 3) {
-            cout << "Pilihan tidak valid! Kembali ke menu...\n";
-            return;
-        }
+        cout << "Cari berdasarkan:\n1. Judul\n2. Penulis\n3. Kategori\nPilihan: ";
+        int c = getIntegerSafe(1, 3);
 
         cout << "Masukkan kata kunci: ";
-        string keyword;
-        getline(cin, keyword);
-        if (keyword.empty()) {
-            cout << "Kata kunci kosong. Kembali ke menu...\n";
-            return;
-        }
-
+        string keyword = getLineTrim();
         transform(keyword.begin(), keyword.end(), keyword.begin(), ::tolower);
 
         vector<Book> results;
-        for (const auto &book : books) {
-            string field;
-            if (choice == 1) field = book.title;
-            else if (choice == 2) field = book.author;
-            else field = book.category;
-
-            string lowerField = field;
-            transform(lowerField.begin(), lowerField.end(), lowerField.begin(), ::tolower);
-
-            if (lowerField.find(keyword) != string::npos) {
-                results.push_back(book);
-            }
+        for (auto &b : books) {
+            string target = (c == 1 ? b.title : c == 2 ? b.author : b.category);
+            transform(target.begin(), target.end(), target.begin(), ::tolower);
+            if (target.find(keyword) != string::npos) results.push_back(b);
         }
 
-        if (results.empty()) {
-            cout << "Tidak ditemukan buku dengan kata kunci '" << keyword << "'.\n";
-        } else {
-            cout << "\nHasil Pencarian (" << results.size() << "):\n";
-            for (const auto &book : results) {
-                cout << "ID: " << book.id << " | " << book.title
-                     << " | " << book.author << " | "
-                     << book.status << " | "
-                     << priorityToString(book.priority) << "\n";
-            }
+        if (results.empty()) cout << "Tidak ditemukan buku.\n";
+        else {
+            cout << "\nHasil pencarian (" << results.size() << "):\n";
+            for (auto &b : results)
+                cout << "ID: " << b.id << " | " << b.title << " | " << b.author
+                     << " | " << b.status << " | " << priorityToString(b.priority) << "\n";
         }
     }
 
     void updateBookStatusAndPriority() {
-        if (books.empty()) {
-            cout << "\nTidak ada buku.\n";
-            return;
-        }
+        if (books.empty()) { cout << "\nTidak ada buku.\n"; return; }
 
         displayAllBooks();
-        cout << "\nMasukkan ID buku yang ingin diupdate: ";
-        int id;
-        if (!(cin >> id)) {
-            clearInputBuffer();
-            cout << "Input tidak valid.\n";
-            return;
-        }
-        clearInputBuffer();
+        cout << "\nMasukkan ID buku: ";
+        int id = getIntegerSafe(1, 999999);
 
-        auto it = find_if(books.begin(), books.end(), [id](const Book &b) { return b.id == id; });
-        if (it == books.end()) {
-            cout << "Buku tidak ditemukan.\n";
-            return;
-        }
+        auto it = find_if(books.begin(), books.end(), [id](auto &b){ return b.id == id; });
+        if (it == books.end()) { cout << "Buku tidak ditemukan.\n"; return; }
 
-        cout << "Buku: " << it->title << "\n";
+        cout << "Status baru (1 Belum dibaca, 2 Sedang dibaca, 3 Selesai dibaca): ";
+        int status = getIntegerSafe(1, 3);
+        it->status = (status == 1 ? "Belum Dibaca" : status == 2 ? "Sedang Dibaca" : "Selesai");
 
-        int status;
-        while (true) {
-            cout << "Status baru (1: Belum Dibaca, 2: Sedang Dibaca, 3: Selesai): ";
-            if (!(cin >> status)) {
-                clearInputBuffer();
-                cout << "Input tidak valid. Masukkan 1-3.\n";
-                continue;
-            }
-            clearInputBuffer();
-            if (status == 1) { const_cast<Book&>(*it).status = "Belum Dibaca"; break; }
-            if (status == 2) { const_cast<Book&>(*it).status = "Sedang Dibaca"; break; }
-            if (status == 3) { const_cast<Book&>(*it).status = "Selesai"; break; }
-            cout << "Pilihan tidak valid.\n";
-        }
+        cout << "Prioritas baru (1 Tinggi, 2 Sedang, 3 Rendah): ";
+        it->priority = getIntegerSafe(1, 3);
 
-        int priority;
-        while (true) {
-            cout << "Prioritas baru (1: Tinggi, 2: Sedang, 3: Rendah): ";
-            if (!(cin >> priority)) {
-                clearInputBuffer();
-                cout << "Input tidak valid. Masukkan 1-3.\n";
-                continue;
-            }
-            clearInputBuffer();
-            if (priority >= 1 && priority <= 3) { const_cast<Book&>(*it).priority = priority; break; }
-            cout << "Pilihan tidak valid.\n";
-        }
-
-        cout << "Status dan prioritas berhasil diupdate!\n";
+        cout << "Berhasil diperbarui!\n";
     }
 
     void deleteBook() {
-        if (books.empty()) {
-            cout << "\nTidak ada buku.\n";
-            return;
-        }
+        if (books.empty()) { cout << "\nTidak ada buku.\n"; return; }
 
         displayAllBooks();
-        cout << "\nMasukkan ID buku yang ingin dihapus: ";
-        int id;
-        if (!(cin >> id)) {
-            clearInputBuffer();
-            cout << "Input tidak valid.\n";
-            return;
-        }
-        clearInputBuffer();
+        cout << "\nMasukkan ID buku: ";
+        int id = getIntegerSafe(1, 999999);
 
-        auto it = find_if(books.begin(), books.end(), [id](const Book &b) { return b.id == id; });
+        auto it = find_if(books.begin(), books.end(), [id](auto &b){ return b.id == id; });
+        if (it == books.end()) { cout << "Buku tidak ditemukan.\n"; return; }
 
-        if (it == books.end()) {
-            cout << "Buku tidak ditemukan.\n";
-            return;
-        }
-
-        cout << "Yakin hapus \"" << it->title << "\"? (y/n): ";
-        char c;
-        if (!(cin >> c)) {
-            clearInputBuffer();
-            cout << "Input tidak valid.\n";
-            return;
-        }
-        clearInputBuffer();
-
-        if (c == 'y' || c == 'Y') {
-            books.erase(it);
-            cout << "Buku dihapus.\n";
-        } else {
-            cout << "Penghapusan dibatalkan.\n";
-        }
+        cout << "Yakin hapus? (y/n): ";
+        string c = getLineTrim();
+        if (c == "y" || c == "Y") { books.erase(it); cout << "Buku dihapus.\n"; }
+        else cout << "Dibatalkan.\n";
     }
 
     void showStatistics() {
-        if (books.empty()) {
-            cout << "\nTidak ada buku.\n";
-            return;
-        }
+        if (books.empty()) { cout << "\nTidak ada buku.\n"; return; }
 
         int unread = 0, reading = 0, finished = 0;
-        int high = 0, medium = 0, low = 0;
+        int high = 0, med = 0, low = 0;
 
-        for (const auto &b : books) {
+        for (auto &b : books) {
             if (b.status == "Belum Dibaca") unread++;
-            else if (b.status == "Sedang Dibaca") reading++;
-            else if (b.status == "Selesai") finished++;
-
+            if (b.status == "Sedang Dibaca") reading++;
+            if (b.status == "Selesai") finished++;
             if (b.priority == 1) high++;
-            else if (b.priority == 2) medium++;
-            else if (b.priority == 3) low++;
+            if (b.priority == 2) med++;
+            if (b.priority == 3) low++;
         }
 
         int total = books.size();
-        double progress = total == 0 ? 0 : finished * 100.0 / total;
-
-        cout << "\n=== STATISTIK PERPUSTAKAAN ===\n";
-        cout << "Total Buku: " << total << "\n\n";
-        cout << "Status:\n";
-        cout << "- Belum Dibaca: " << unread << "\n";
-        cout << "- Sedang Dibaca: " << reading << "\n";
-        cout << "- Selesai: " << finished << "\n\n";
-        cout << "Prioritas:\n";
-        cout << "- Tinggi: " << high << "\n";
-        cout << "- Sedang: " << medium << "\n";
-        cout << "- Rendah: " << low << "\n\n";
-        cout << fixed << setprecision(1);
-        cout << "Progress Membaca: " << progress << "%\n";
+        cout << "\n=== STATISTIK ===\n";
+        cout << "Total Buku: " << total << "\n";
+        cout << "Belum Dibaca: " << unread << "\n";
+        cout << "Sedang Dibaca: " << reading << "\n";
+        cout << "Selesai: " << finished << "\n";
+        cout << "Prioritas Tinggi: " << high << "\n";
+        cout << "Prioritas Sedang: " << med << "\n";
+        cout << "Prioritas Rendah: " << low << "\n";
     }
 
     void showMenu() {
@@ -409,16 +284,15 @@ public:
     }
 
     void run() {
-        int choice;
-        do {
+        while (true) {
             showMenu();
-            if (!(cin >> choice)) {
-                clearInputBuffer();
+            string input = getLineTrim();
+            int choice;
+            try { choice = stoi(input); } catch (...) {
                 cout << "Input tidak valid. Masukkan angka menu.\n";
-                choice = -1;
                 continue;
             }
-            clearInputBuffer();
+
             switch(choice) {
                 case 1: addBook(); break;
                 case 2: displayAllBooks(); break;
@@ -431,13 +305,11 @@ public:
                 case 0:
                     saveData();
                     cout << "Terima kasih telah menggunakan Mini Library!\n";
-                    break;
+                    return;
                 default:
                     cout << "Pilihan tidak valid.\n";
-                    choice = -1;
-                    break;
             }
-        } while (choice != 0);
+        }
     }
 };
 
@@ -446,5 +318,4 @@ int main() {
     MiniLibrary library;
     library.run();
     return 0;
-
 }
